@@ -22,6 +22,7 @@ jobs:
         GROQ_API_KEY: "ci_groq_key"
         CELERY_BROKER_URL: "memory://"
         CELERY_RESULT_BACKEND: "memory://"
+        PYTHONPATH: ${{ github.workspace }}
       run: pytest -v
 
   deploy:
