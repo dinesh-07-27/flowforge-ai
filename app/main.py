@@ -9,6 +9,7 @@ from app.middleware.idempotency import IdempotencyMiddleware
 from app.workflows.router import router as workflows_router
 from app.triggers.router import router as triggers_router
 from app.executions.router import router as executions_router
+from app.dashboard.router import router as dashboard_router
 from app.ws.router import router as ws_router
 
 app = FastAPI(
@@ -27,6 +28,7 @@ app.add_middleware(RateLimitMiddleware, rate_limit=100, time_window=60)
 app.include_router(workflows_router, prefix=settings.API_V1_STR)
 app.include_router(triggers_router, prefix=settings.API_V1_STR)
 app.include_router(executions_router, prefix=settings.API_V1_STR)
+app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 
 # WebSocket router (no prefix — WS routes use their own path)
 app.include_router(ws_router, prefix=settings.API_V1_STR)

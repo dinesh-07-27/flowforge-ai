@@ -1,15 +1,35 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Activity, ArrowUpRight, CheckCircle2, Clock, PlayCircle, XCircle } from "lucide-react";
+import { Activity, ArrowUpRight, CheckCircle2, Clock, PlayCircle, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { dashboardApi } from "@/lib/api";
 
 export default function Dashboard() {
-  const stats = [
-    { name: "Total Workflows", value: "24", icon: PlayCircle, color: "text-indigo-400" },
-    { name: "Executions (24h)", value: "1,432", icon: Activity, color: "text-emerald-400" },
-    { name: "Failed Tasks", value: "3", icon: XCircle, color: "text-rose-400" },
-    { name: "Avg. Latency", value: "124ms", icon: Clock, color: "text-amber-400" },
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const data = await dashboardApi.stats();
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to load stats", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statCards = [
+    { name: "Total Workflows", value: stats?.total_workflows || "0", icon: PlayCircle, color: "text-indigo-400" },
+    { name: "Executions (24h)", value: stats?.executions_24h || "0", icon: Activity, color: "text-emerald-400" },
+    { name: "Failed Tasks", value: stats?.failed_tasks || "0", icon: XCircle, color: "text-rose-400" },
+    { name: "Avg. Latency", value: stats?.avg_latency || "0ms", icon: Clock, color: "text-amber-400" },
   ];
 
   return (
@@ -29,7 +49,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => (
+        {statCards.map((stat, idx) => (
           <motion.div
             key={stat.name}
             initial={{ opacity: 0, y: 20 }}
@@ -40,7 +60,11 @@ export default function Dashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-medium text-zinc-400">{stat.name}</p>
-                <p className="text-3xl font-bold text-white mt-2">{stat.value}</p>
+                {loading ? (
+                  <div className="h-9 w-16 bg-white/5 animate-pulse rounded mt-2" />
+                ) : (
+                  <p className="text-3xl font-bold text-white mt-2">{stat.value}</p>
+                )}
               </div>
               <div className={`p-2 rounded-lg bg-white/5 ${stat.color}`}>
                 <stat.icon className="w-5 h-5" />

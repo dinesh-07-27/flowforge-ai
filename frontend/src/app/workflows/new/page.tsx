@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Save, Plus, Zap, Bot, Send, Settings2, Trash2, X, Check } from "lucide-react";
+import { ArrowLeft, Save, Plus, Zap, Bot, Send, Settings2, Trash2, X, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
+import { workflowsApi } from "@/lib/api";
 
 const STEP_TYPES = [
   { type: "trigger", name: "Webhook Trigger", icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10" },
@@ -12,21 +14,13 @@ const STEP_TYPES = [
   { type: "action", name: "HTTP Request", icon: Send, color: "text-emerald-400", bg: "bg-emerald-400/10" },
 ];
 
-type Step = {
-  id: number;
-  type: string;
-  name: string;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-  config: string;
-};
-
 export default function WorkflowBuilder() {
+  const router = useRouter();
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [steps, setSteps] = useState<Step[]>([
+  const [steps, setSteps] = useState<any[]>([
     { id: 1, type: "trigger", name: "Webhook Trigger", icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10", config: '{ "method": "POST", "path": "/webhook" }' },
     { id: 2, type: "action", name: "AI Summarize", icon: Bot, color: "text-indigo-400", bg: "bg-indigo-400/10", config: '{ "input": "{{step_1.output}}", "model": "llama-3" }' },
   ]);
@@ -48,9 +42,35 @@ export default function WorkflowBuilder() {
     setSteps(steps.map(s => s.id === id ? { ...s, config: value } : s));
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      
+      // Map to backend schema
+      const payload = {
+        name: workflowName,
+        description: "Created via Workflow Builder",
+        trigger_type: steps.find(s => s.type === "trigger")?.name || "Webhook",
+        steps: steps.filter(s => s.type === "action").map((s, idx) => ({
+          step_order: idx + 1,
+          action_type: s.name,
+          action_config: JSON.parse(s.config)
+        }))
+      };
+
+      await workflowsApi.create(payload);
+      
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        router.push("/workflows");
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to save workflow", err);
+      alert("Failed to save workflow. Check console for details.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -74,15 +94,16 @@ export default function WorkflowBuilder() {
         </div>
         <button
           onClick={handleSave}
+          disabled={saving}
           className={clsx(
             "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
             saved
               ? "bg-emerald-500 text-white"
-              : "bg-indigo-500 hover:bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+              : "bg-indigo-500 hover:bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] disabled:opacity-50"
           )}
         >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? "Saved!" : "Save & Deploy"}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />)}
+          {saving ? "Saving..." : (saved ? "Created!" : "Save & Deploy")}
         </button>
       </header>
 
@@ -120,7 +141,6 @@ export default function WorkflowBuilder() {
                   )}
                 </div>
 
-                {/* Editable config */}
                 <div className="mt-2">
                   <label className="text-xs text-zinc-500 mb-1 block">Configuration (JSON)</label>
                   <textarea
@@ -135,7 +155,6 @@ export default function WorkflowBuilder() {
           ))}
         </AnimatePresence>
 
-        {/* Add Step Button / Picker */}
         <div className="relative z-10 mt-2">
           {showPicker ? (
             <motion.div
