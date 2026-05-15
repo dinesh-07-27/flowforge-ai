@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
 export const metadata: Metadata = {
-  title: "FlowForge AI | Production Automation",
-  description: "Enterprise-grade AI Workflow Automation",
+  title: "FlowForge AI | Production AI Platform",
+  description: "Next-gen AI workflow automation",
 };
 
 export default function RootLayout({
@@ -17,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} antialiased bg-[#09090b] text-zinc-100 flex h-screen overflow-hidden`}>
+      <body className="font-sans antialiased bg-[#09090b] text-zinc-100 flex h-screen overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-y-auto p-8 relative">
           {/* Subtle background glow effect */}
