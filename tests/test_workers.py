@@ -1,21 +1,18 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from app.workers.tasks import execute_workflow_task
+from app.workers.tasks import process_workflow_task
 
 def test_celery_worker_dispatch():
     """
     Test that the Celery worker function can be called.
-    We mock the database session to avoid needing a real DB connection for worker unit tests.
+    We mock the asyncio event loop to avoid running real database queries in the test.
     """
-    with patch("app.workers.tasks.SessionLocal") as mock_session_local:
-        mock_db = MagicMock()
-        mock_session_local.return_value = mock_db
+    with patch("app.workers.tasks.asyncio.get_event_loop") as mock_get_loop:
+        mock_loop = MagicMock()
+        mock_get_loop.return_value = mock_loop
         
-        # Mock the execution query to return None (no execution found)
-        mock_db.query().filter().first.return_value = None
+        # Execute the Celery task entry point
+        process_workflow_task(execution_id=999)
         
-        # Execute the task
-        execute_workflow_task(execution_id=999)
-        
-        # Verify the database was queried
-        mock_db.query.assert_called()
+        # Verify that it attempted to run the async process function
+        mock_loop.run_until_complete.assert_called_once()
