@@ -1,66 +1,74 @@
-from app.workers.celery_app import celery_app
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
+import asyncio
+import datetime
+from celery import shared_task
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from app.core.database import AsyncSessionLocal
+from app.users.models import User
+from app.workflows.models import Workflow, WorkflowStep
 from app.executions.models import ExecutionLog, ExecutionState
-from app.workflows.models import WorkflowStep
-from app.actions.registry import registry
+from app.workers.celery_app import celery_app
 
-SYNC_DB_URL = settings.DATABASE_URL.replace("+asyncpg", "")
-engine = create_engine(SYNC_DB_URL)
-SessionLocal = sessionmaker(bind=engine)
-
-@celery_app.task(bind=True, max_retries=3)
-def execute_workflow_task(self, execution_id: int):
-    """
-    Dynamically executes all steps in a workflow using the Action Registry.
-    """
-    db = SessionLocal()
-    try:
-        execution = db.query(ExecutionLog).filter(ExecutionLog.id == execution_id).first()
+async def _process_workflow(execution_id: int):
+    async with AsyncSessionLocal() as db:
+        # 1. Fetch execution log and workflow
+        result = await db.execute(
+            select(ExecutionLog)
+            .where(ExecutionLog.id == execution_id)
+            .options(selectinload(ExecutionLog.workflow).selectinload(Workflow.steps))
+        )
+        execution = result.scalar_one_or_none()
         if not execution:
             return
-            
+
         execution.status = ExecutionState.RUNNING
-        db.commit()
+        await db.commit()
+
+        workflow = execution.workflow
+        results = []
         
-        # Payload accumulates state across steps
-        current_payload = execution.trigger_payload or {}
-        
-        # Fetch workflow steps in order
-        steps = db.query(WorkflowStep).filter(
-            WorkflowStep.workflow_id == execution.workflow_id
-        ).order_by(WorkflowStep.step_order).all()
-        
-        executed_steps = []
-        
-        for step in steps:
-            # Get the action function from our registry
-            action_func = registry.get_action(step.action_type)
+        try:
+            from app.core.ai import ai_engine
             
-            # Execute the action
-            step_result = action_func(config=step.action_config, payload=current_payload)
+            # 2. Process each step
+            for step in sorted(workflow.steps, key=lambda x: x.step_order):
+                # Build a dynamic prompt based on step configuration
+                prompt = step.action_config.get("prompt", f"Perform {step.action_type} for: ")
+                # If there was a previous step, we can pass its output (Simple context chaining)
+                if results:
+                    prompt += f"\nContext from previous step: {results[-1]['output']}"
+                
+                model = step.action_config.get("model", "llama-3.3-70b-versatile")
+                
+                # REAL AI CALL
+                ai_output = await ai_engine.generate_completion(prompt, model=model)
+                
+                step_result = {
+                    "step_id": step.id,
+                    "action_type": step.action_type,
+                    "status": "success",
+                    "output": ai_output,
+                    "timestamp": datetime.datetime.utcnow().isoformat()
+                }
+                results.append(step_result)
+
+            # 3. Finalize execution
+            execution.status = ExecutionState.COMPLETED
+            execution.result_data = {
+                "steps": results,
+                "total_steps": len(results),
+                "system_node": "Groq-Llama-Worker-01"
+            }
+            execution.completed_at = datetime.datetime.utcnow()
             
-            # Merge result into payload for the next step
-            current_payload.update({f"step_{step.step_order}_result": step_result})
-            executed_steps.append(step.action_type)
-        
-        execution.status = ExecutionState.COMPLETED
-        execution.result_data = {
-            "final_payload": current_payload,
-            "steps_executed": executed_steps
-        }
-        db.commit()
-        
-    except Exception as exc:
-        execution = db.query(ExecutionLog).filter(ExecutionLog.id == execution_id).first()
-        if execution:
+        except Exception as e:
             execution.status = ExecutionState.FAILED
-            execution.error_message = str(exc)
-            db.commit()
+            execution.error_message = str(e)
             
-        # Exponential backoff retry
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
-        
-    finally:
-        db.close()
+        await db.commit()
+
+@celery_app.task(name="process_workflow_task")
+def process_workflow_task(execution_id: int):
+    # Celery is synchronous, so we run our async logic using asyncio
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(_process_workflow(execution_id))

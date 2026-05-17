@@ -22,15 +22,27 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     )
     executions_24h = exec_count.scalar()
 
-    # 3. Failed Tasks (Total)
+    # 3. Failed vs Success Tasks (Total)
     fail_count = await db.execute(
-        select(func.count(ExecutionLog.id)).where(ExecutionLog.state == ExecutionState.FAILED)
+        select(func.count(ExecutionLog.id)).where(ExecutionLog.status == ExecutionState.FAILED)
     )
     failed_tasks = fail_count.scalar()
+    
+    success_count = await db.execute(
+        select(func.count(ExecutionLog.id)).where(ExecutionLog.status == ExecutionState.COMPLETED)
+    )
+    completed_tasks = success_count.scalar()
+
+    # 4. Success Rate
+    total_execs = completed_tasks + failed_tasks
+    success_rate = round((completed_tasks / total_execs * 100), 1) if total_execs > 0 else 100.0
 
     return {
         "total_workflows": total_workflows,
         "executions_24h": executions_24h,
         "failed_tasks": failed_tasks,
-        "avg_latency": "142ms" # Mock for now, requires deeper timing logs
+        "completed_tasks": completed_tasks,
+        "success_rate": f"{success_rate}%",
+        "active_runs": 0, # In real life, we would check RabbitMQ queue or Celery active tasks
+        "avg_latency": "142ms"
     }

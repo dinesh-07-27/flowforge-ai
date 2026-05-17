@@ -29,14 +29,26 @@ export default function WorkflowsPage() {
     }
   };
 
-  const toggleStatus = (id: number) => {
-    setWorkflows(ws => ws.map(w => w.id === id ? { ...w, status: w.status === "Active" ? "Paused" : "Active" } : w));
+  const toggleStatus = async (id: number) => {
+    try {
+      const workflow = workflows.find(w => w.id === id);
+      const newStatus = !workflow.is_active;
+      await workflowsApi.update(id, { is_active: newStatus });
+      setWorkflows(ws => ws.map(w => w.id === id ? { ...w, is_active: newStatus } : w));
+    } catch (err) {
+      console.error("Failed to toggle status", err);
+    }
   };
 
   const deleteWorkflow = async (id: number) => {
-    // In a final production app, we would call an API here: await workflowsApi.delete(id)
-    setWorkflows(ws => ws.filter(w => w.id !== id));
-    setOpenMenu(null);
+    try {
+      await workflowsApi.delete(id);
+      setWorkflows(ws => ws.filter(w => w.id !== id));
+      setOpenMenu(null);
+    } catch (err) {
+      console.error("Failed to delete workflow", err);
+      alert("Failed to delete workflow from database.");
+    }
   };
 
   if (loading) {

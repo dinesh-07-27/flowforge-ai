@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, JSON, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, JSON, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 import datetime
 from app.core.database import Base
@@ -11,6 +11,7 @@ class Workflow(Base):
     name = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
     trigger_type = Column(String, nullable=False)  # e.g., 'webhook', 'schedule'
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     steps = relationship("WorkflowStep", back_populates="workflow", cascade="all, delete-orphan")

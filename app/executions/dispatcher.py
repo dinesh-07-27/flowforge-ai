@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.workflows.models import Workflow
 from app.executions.models import ExecutionLog, ExecutionState
-from app.workers.tasks import execute_workflow_task
+from app.workers.tasks import process_workflow_task
 
 async def dispatch_workflow(workflow_id: int, trigger_payload: dict, db: AsyncSession) -> ExecutionLog:
     """
@@ -17,6 +17,6 @@ async def dispatch_workflow(workflow_id: int, trigger_payload: dict, db: AsyncSe
     await db.refresh(execution)
 
     # Dispatch to Celery
-    execute_workflow_task.delay(execution.id)
+    process_workflow_task.delay(execution.id)
 
     return execution

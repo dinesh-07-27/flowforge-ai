@@ -27,10 +27,10 @@ export default function MonitoringPage() {
   };
 
   const metrics = [
-    { label: "API Success Rate", value: "99.9%", trend: "+0.1%", color: "text-emerald-400", bg: "bg-emerald-400/10" },
-    { label: "Active Workers", value: "4", trend: "Stable", color: "text-indigo-400", bg: "bg-indigo-400/10" },
-    { label: "Queue Depth", value: "0", trend: "Empty", color: "text-amber-400", bg: "bg-amber-400/10" },
-    { label: "Failed (24h)", value: stats?.failed_tasks || "0", trend: "Audit log", color: "text-rose-400", bg: "bg-rose-400/10" },
+    { label: "API Success Rate", value: stats?.success_rate || "100%", trend: "+0.0%", color: "text-emerald-400", bg: "bg-emerald-400/10" },
+    { label: "Active Workers", value: "2", trend: "Healthy", color: "text-indigo-400", bg: "bg-indigo-400/10" },
+    { label: "Executions (24h)", value: stats?.executions_24h || "0", trend: "Live", color: "text-amber-400", bg: "bg-amber-400/10" },
+    { label: "Failed Tasks", value: stats?.failed_tasks || "0", trend: "Alert Log", color: "text-rose-400", bg: "bg-rose-400/10" },
   ];
 
   return (

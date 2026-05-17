@@ -11,6 +11,7 @@ class WorkflowBase(BaseModel):
     name: str
     description: Optional[str] = None
     trigger_type: str
+    is_active: Optional[bool] = True
 
 class WorkflowCreate(WorkflowBase):
     steps: List[WorkflowStepBase]

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "FlowForge AI | Production AI Platform",
@@ -15,6 +16,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="font-sans antialiased bg-[#09090b] text-zinc-100 flex h-screen overflow-hidden">
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.1)',
+            },
+          }}
+        />
         <Sidebar />
         <main className="flex-1 overflow-y-auto p-8 relative">
           {/* Subtle background glow effect */}

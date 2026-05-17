@@ -14,3 +14,6 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
 )
+
+# Auto-discover tasks from the tasks.py module
+celery_app.autodiscover_tasks(["app.workers"])
