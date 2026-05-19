@@ -47,17 +47,17 @@ fi
 
 # 4. Launch multi-container microservice mesh
 echo "[Step 4] Launching production containerized services via Docker Compose..."
-# Using docker compose v2 syntax
-docker compose up -d --build
+# Using docker compose v2 syntax with sudo to bypass group refresh latency
+sudo docker compose up -d --build
 
 # 5. Execute database structural migrations
 echo "[Step 5] Upgrading relational schema definitions..."
-docker compose exec -T api alembic upgrade head || echo "Database migrations already up to date."
+sudo docker compose exec -T api alembic upgrade head || echo "Database migrations already up to date."
 
 # 6. Pre-seed default production workflow sets
 echo "[Step 6] Seeding workflow database tables..."
-docker compose exec -T api python scripts/create_demo_workflow.py
-docker compose exec -T api python scripts/update_workflow_steps_to_dynamic.py
+sudo docker compose exec -T api python scripts/create_demo_workflow.py
+sudo docker compose exec -T api python scripts/update_workflow_steps_to_dynamic.py
 
 echo "=========================================================================="
 echo "🎉 DEPLOYMENT COMPLETE!"
