@@ -29,23 +29,26 @@ async def startup_event():
     from app.auth.security import get_password_hash
     from sqlalchemy.future import select
     
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(User).where(User.email == "admin@flowforge.ai"))
-        user = result.scalar_one_or_none()
-        if not user:
-            # Bootstrap initial admin from env or defaults
-            admin_email = "admin@flowforge.ai"
-            admin_pass = "admin123" # In prod, this would be in .env
-            
-            new_user = User(
-                email=admin_email,
-                hashed_password=get_password_hash(admin_pass),
-                is_active=True,
-                is_superuser=True
-            )
-            db.add(new_user)
-            await db.commit()
-            print(f"Seeded default User {admin_email} with secure password")
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.email == "admin@flowforge.ai"))
+            user = result.scalar_one_or_none()
+            if not user:
+                # Bootstrap initial admin from env or defaults
+                admin_email = "admin@flowforge.ai"
+                admin_pass = "admin123" # In prod, this would be in .env
+                
+                new_user = User(
+                    email=admin_email,
+                    hashed_password=get_password_hash(admin_pass),
+                    is_active=True,
+                    is_superuser=True
+                )
+                db.add(new_user)
+                await db.commit()
+                print(f"Seeded default User {admin_email} with secure password")
+    except Exception as e:
+        print(f"Startup bootstrap bypassed/deferred: {str(e)}")
 
 # Middlewares are executed bottom-up (last added = first executed)
 app.add_middleware(RequestTracingMiddleware)
