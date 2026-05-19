@@ -18,6 +18,7 @@ export default function WorkflowDetailPage() {
   const [running, setRunning] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
+  const [customPayloadText, setCustomPayloadText] = useState("");
 
   useEffect(() => {
     loadWorkflow();
@@ -28,6 +29,13 @@ export default function WorkflowDetailPage() {
       const data = await workflowsApi.get(params.id as string);
       setWorkflow(data);
       setTempName(data.name);
+      
+      // Smart pre-fill trigger content based on workflow
+      if (data.name.toLowerCase().includes("invoice")) {
+        setCustomPayloadText("Invoice #INV-2026-7783\nTotal Due: $2,850.00\nDue Date: June 15, 2026\nCustomer Name: John Doe");
+      } else {
+        setCustomPayloadText("Paste support ticket, email body, or billing text here to trigger AI automation...");
+      }
     } catch (err) {
       console.error("Failed to load workflow", err);
     } finally {
@@ -38,9 +46,11 @@ export default function WorkflowDetailPage() {
   const handleRun = async () => {
     try {
       setRunning(true);
-      await workflowsApi.run(params.id as string);
+      // Run workflow with custom input payload
+      await workflowsApi.run(params.id as string, { content: customPayloadText });
       setWorkflow({ ...workflow, is_active: true });
-      toast.success("Workflow triggered and activated successfully!");
+      toast.success("AI workflow triggered successfully with dynamic payload!");
+      router.push("/executions");
     } catch (err) {
       console.error("Run failed", err);
       toast.error("Failed to trigger workflow.");
@@ -194,12 +204,12 @@ export default function WorkflowDetailPage() {
                     <div className="w-11 h-11 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                       <Icon className="w-5 h-5 text-indigo-400" />
                     </div>
-                    <div className="flex-1 bg-white/5 rounded-xl p-4 border border-white/5">
+                    <div className="flex-1 min-w-0 bg-white/5 rounded-xl p-4 border border-white/5">
                       <div className="flex justify-between items-start">
                         <h4 className="text-white font-medium">{step.action_type}</h4>
                         <span className="text-[10px] text-zinc-600 font-mono">STEP {idx + 1}</span>
                       </div>
-                      <pre className="mt-3 bg-black/40 p-3 rounded-lg text-[11px] font-mono text-zinc-400 overflow-x-auto border border-white/5">
+                      <pre className="mt-3 bg-black/40 p-3 rounded-lg text-[11px] font-mono text-zinc-400 border border-white/5 whitespace-pre-wrap break-words">
                         {JSON.stringify(step.action_config, null, 2)}
                       </pre>
                     </div>
@@ -232,11 +242,34 @@ export default function WorkflowDetailPage() {
             </div>
           </section>
 
-          <section className="bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10">
-            <h3 className="text-indigo-400 font-semibold text-sm mb-2">Usage Tip</h3>
+          <section className="bg-indigo-500/[0.02] border border-indigo-500/10 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-white font-semibold text-sm">⚡ Trigger Sandbox</h3>
+            </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Use the "Run Now" button to manually trigger this workflow with a test payload. Perfect for debugging your AI prompts.
+              Simulate a live external webhook trigger (like an incoming email or raw file upload) by editing the input payload below:
             </p>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Payload Content ({"{{trigger.content}}"})</label>
+              <textarea
+                value={customPayloadText}
+                onChange={(e) => setCustomPayloadText(e.target.value)}
+                rows={5}
+                placeholder="Paste real-world input data here..."
+                className="w-full bg-black/40 border border-white/5 rounded-lg p-3 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500 transition-colors font-mono resize-none leading-normal"
+              />
+            </div>
+
+            <button
+              onClick={handleRun}
+              disabled={running}
+              className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2"
+            >
+              {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+              Fire Automated Pipeline
+            </button>
           </section>
         </div>
       </div>

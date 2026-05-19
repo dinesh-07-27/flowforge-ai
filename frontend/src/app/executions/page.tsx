@@ -193,7 +193,7 @@ export default function ExecutionsPage() {
                     <Terminal className="w-4 h-4" /> Result Data
                   </h3>
                   <div className="bg-black/40 rounded-xl border border-white/5 p-4 font-mono text-xs leading-relaxed overflow-x-auto">
-                    <pre className="text-emerald-400/90">
+                    <pre className="text-emerald-400/90 whitespace-pre-wrap break-all">
                       {JSON.stringify(selectedExec.result_data || { message: "No data available" }, null, 2)}
                     </pre>
                   </div>
@@ -202,7 +202,7 @@ export default function ExecutionsPage() {
                 <section>
                   <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">Input Payload</h3>
                   <div className="bg-black/40 rounded-xl border border-white/5 p-4 font-mono text-xs text-zinc-500">
-                    <pre>
+                    <pre className="whitespace-pre-wrap break-all">
                       {JSON.stringify(selectedExec.trigger_payload || { source: "UI_MANUAL_TRIGGER" }, null, 2)}
                     </pre>
                   </div>

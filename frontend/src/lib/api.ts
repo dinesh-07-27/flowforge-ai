@@ -29,6 +29,10 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     throw new Error(error.detail || "API request failed");
   }
 
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }
 
@@ -38,7 +42,10 @@ export const workflowsApi = {
   create: (data: any) => fetchApi("/workflows/", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string | number, data: any) => fetchApi(`/workflows/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string | number) => fetchApi(`/workflows/${id}`, { method: "DELETE" }),
-  run: (id: string | number) => fetchApi(`/workflows/${id}/run`, { method: "POST" }),
+  run: (id: string | number, payload?: any) => fetchApi(`/workflows/${id}/run`, { 
+    method: "POST", 
+    body: payload ? JSON.stringify(payload) : undefined
+  }),
 };
 
 export const executionsApi = {
@@ -48,6 +55,22 @@ export const executionsApi = {
 
 export const dashboardApi = {
   stats: () => fetchApi("/dashboard/stats"),
+};
+
+export const usersApi = {
+  me: () => fetchApi("/users/me"),
+  list: () => fetchApi("/users/"),
+  changePassword: (newPassword: string) => fetchApi("/users/change-password", {
+    method: "POST",
+    body: JSON.stringify({ new_password: newPassword })
+  }),
+  deleteAccount: () => fetchApi("/users/me", { method: "DELETE" }),
+  deleteUser: (id: number | string) => fetchApi(`/users/${id}`, { method: "DELETE" }),
+  getConfig: () => fetchApi("/users/config"),
+  saveConfig: (data: { groq_api_key: string; global_rate_limit: number }) => fetchApi("/users/config", {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
 };
 
 export const authApi = {

@@ -7,12 +7,13 @@ class AIEngine:
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self.timeout = 30.0
 
-    async def generate_completion(self, prompt: str, model: str = "llama-3.3-70b-versatile"):
-        if not self.api_key:
+    async def generate_completion(self, prompt: str, model: str = "llama-3.3-70b-versatile", api_key: str = None):
+        key_to_use = api_key or self.api_key
+        if not key_to_use:
             return "AI Error: No API key configured."
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {key_to_use}",
             "Content-Type": "application/json"
         }
         

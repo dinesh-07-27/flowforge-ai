@@ -13,6 +13,7 @@ from app.executions.router import router as executions_router
 from app.dashboard.router import router as dashboard_router
 from app.ws.router import router as ws_router
 from app.auth.router import router as auth_router
+from app.users.router import router as users_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -58,6 +59,7 @@ app.include_router(triggers_router, prefix=settings.API_V1_STR)
 app.include_router(executions_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 app.include_router(ws_router, prefix=settings.API_V1_STR)
+app.include_router(users_router, prefix=settings.API_V1_STR)
 
 # Prometheus metrics endpoint
 metrics_app = make_asgi_app()

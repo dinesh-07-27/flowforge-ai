@@ -52,10 +52,13 @@ async def register(
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already exists")
         
+    is_super = True if user_in.email.lower() == "dineshreddykondur@gmail.com" else False
+    
     new_user = User(
         email=user_in.email,
         hashed_password=security.get_password_hash(user_in.password),
-        is_active=True
+        is_active=True,
+        is_superuser=is_super
     )
     db.add(new_user)
     await db.commit()

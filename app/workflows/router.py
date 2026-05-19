@@ -7,14 +7,15 @@ from typing import List
 from app.core.database import get_db
 from app.workflows.models import Workflow, WorkflowStep
 from app.workflows.schemas import WorkflowCreate, WorkflowResponse
+from app.auth.dependencies import get_current_active_user
+from app.users.models import User
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 @router.post("/", response_model=WorkflowResponse)
-async def create_workflow(workflow_in: WorkflowCreate, db: AsyncSession = Depends(get_db)):
-    user_id = 1 
+async def create_workflow(workflow_in: WorkflowCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     db_workflow = Workflow(
-        user_id=user_id,
+        user_id=current_user.id,
         name=workflow_in.name,
         description=workflow_in.description,
         trigger_type=workflow_in.trigger_type
@@ -39,14 +40,19 @@ async def create_workflow(workflow_in: WorkflowCreate, db: AsyncSession = Depend
     return result.scalar_one()
 
 @router.get("/", response_model=List[WorkflowResponse])
-async def list_workflows(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Workflow).options(selectinload(Workflow.steps)).order_by(Workflow.created_at.desc()))
+async def list_workflows(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.user_id == current_user.id)
+        .options(selectinload(Workflow.steps))
+        .order_by(Workflow.created_at.desc())
+    )
     return result.scalars().all()
 
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
-async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
+async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     result = await db.execute(
-        select(Workflow).where(Workflow.id == workflow_id).options(selectinload(Workflow.steps))
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == current_user.id).options(selectinload(Workflow.steps))
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
@@ -54,17 +60,25 @@ async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
     return workflow
 
 @router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
-    # Idempotent delete: if it's already gone, we don't care
+async def delete_workflow(workflow_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    # Verify ownership before allowing deletion
+    result = await db.execute(select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == current_user.id))
+    db_workflow = result.scalar_one_or_none()
+    if not db_workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+        
+    from app.executions.models import ExecutionLog
+    # Idempotent delete: delete child execution logs and steps first to satisfy constraints
+    await db.execute(delete(ExecutionLog).where(ExecutionLog.workflow_id == workflow_id))
     await db.execute(delete(WorkflowStep).where(WorkflowStep.workflow_id == workflow_id))
     await db.execute(delete(Workflow).where(Workflow.id == workflow_id))
     await db.commit()
     return None
 
 @router.patch("/{workflow_id}", response_model=WorkflowResponse)
-async def update_workflow(workflow_id: int, workflow_in: dict, db: AsyncSession = Depends(get_db)):
+async def update_workflow(workflow_id: int, workflow_in: dict, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     result = await db.execute(
-        select(Workflow).where(Workflow.id == workflow_id).options(selectinload(Workflow.steps))
+        select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == current_user.id).options(selectinload(Workflow.steps))
     )
     db_workflow = result.scalar_one_or_none()
     if not db_workflow:
@@ -79,8 +93,13 @@ async def update_workflow(workflow_id: int, workflow_in: dict, db: AsyncSession 
     return db_workflow
 
 @router.post("/{workflow_id}/run", status_code=status.HTTP_202_ACCEPTED)
-async def run_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
+async def run_workflow(
+    workflow_id: int, 
+    payload: dict = None, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_active_user)
+):
+    result = await db.execute(select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == current_user.id))
     db_workflow = result.scalar_one_or_none()
     if not db_workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -93,11 +112,14 @@ async def run_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
     import datetime
     from app.workers.tasks import process_workflow_task
     
+    # Use the passed payload if available, otherwise fall back to UI trigger default
+    trigger_payload = payload if payload else {"source": "UI_MANUAL_TRIGGER", "content": "Manual trigger without custom payload"}
+    
     log = ExecutionLog(
         workflow_id=workflow_id,
         status=ExecutionState.PENDING,
         started_at=datetime.datetime.utcnow(),
-        trigger_payload={"source": "UI_MANUAL_TRIGGER"}
+        trigger_payload=trigger_payload
     )
     db.add(log)
     await db.commit()

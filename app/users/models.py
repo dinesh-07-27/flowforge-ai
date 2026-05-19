@@ -9,3 +9,10 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String, nullable=False)
+

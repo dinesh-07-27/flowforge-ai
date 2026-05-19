@@ -5,31 +5,39 @@ from sqlalchemy import func
 from app.core.database import get_db
 from app.workflows.models import Workflow
 from app.executions.models import ExecutionLog, ExecutionState
+from app.auth.dependencies import get_current_active_user
+from app.users.models import User
 from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/stats")
-async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
-    # 1. Total Workflows
-    wf_count = await db.execute(select(func.count(Workflow.id)))
+async def get_dashboard_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    # 1. Total Workflows for this user
+    wf_count = await db.execute(select(func.count(Workflow.id)).where(Workflow.user_id == current_user.id))
     total_workflows = wf_count.scalar()
 
-    # 2. Executions in last 24h
+    # 2. Executions in last 24h for this user's workflows
     yesterday = datetime.utcnow() - timedelta(days=1)
     exec_count = await db.execute(
-        select(func.count(ExecutionLog.id)).where(ExecutionLog.started_at >= yesterday)
+        select(func.count(ExecutionLog.id))
+        .join(Workflow, ExecutionLog.workflow_id == Workflow.id)
+        .where(Workflow.user_id == current_user.id, ExecutionLog.started_at >= yesterday)
     )
     executions_24h = exec_count.scalar()
 
-    # 3. Failed vs Success Tasks (Total)
+    # 3. Failed vs Success Tasks for this user
     fail_count = await db.execute(
-        select(func.count(ExecutionLog.id)).where(ExecutionLog.status == ExecutionState.FAILED)
+        select(func.count(ExecutionLog.id))
+        .join(Workflow, ExecutionLog.workflow_id == Workflow.id)
+        .where(Workflow.user_id == current_user.id, ExecutionLog.status == ExecutionState.FAILED)
     )
     failed_tasks = fail_count.scalar()
     
     success_count = await db.execute(
-        select(func.count(ExecutionLog.id)).where(ExecutionLog.status == ExecutionState.COMPLETED)
+        select(func.count(ExecutionLog.id))
+        .join(Workflow, ExecutionLog.workflow_id == Workflow.id)
+        .where(Workflow.user_id == current_user.id, ExecutionLog.status == ExecutionState.COMPLETED)
     )
     completed_tasks = success_count.scalar()
 
