@@ -1,38 +1,22 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
 
-# Install dependencies only when needed
-FROM base AS deps
 WORKDIR /app
+
+# 1. Copy package files and install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund && npm cache clean --force
 
-# Development stage
-FROM base AS development
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# 2. Copy the rest of the application files
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED 1
-CMD ["npm", "run", "dev"]
 
-# Build stage
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# 3. Build the Next.js production bundle
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
-# Production image
-FROM base AS runner
-WORKDIR /app
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
+# 4. Expose the port and configure host
 EXPOSE 3000
 ENV PORT 3000
+ENV NODE_ENV production
 
-CMD ["node", "server.js"]
+# 5. Start Next.js server directly
+CMD ["npm", "start"]
